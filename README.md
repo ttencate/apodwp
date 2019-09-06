@@ -13,7 +13,9 @@ For example, for the
 Requirements
 ------------
 
-See the `[packages]` section in the `Pipfile`.
+See the `[packages]` section in the `Pipfile`. If you have `pipenv` installed
+(recommended!), you can use the wrapper script `apodwp` to run `apodwp.py`
+inside a virtualenv with just the right dependencies.
 
 Usage
 -----

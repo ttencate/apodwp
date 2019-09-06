@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export PIPENV_PIPFILE="`dirname $0`/Pipfile"
+pipenv run "`dirname $0`/apodwp.py" "$@"
