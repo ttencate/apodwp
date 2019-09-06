@@ -5,6 +5,11 @@ This is a Python script that downloads the NASA Astronomy Picture of the Day,
 overlays the explanation text onto it, and saves the result as an image with a
 size of your choosing.
 
+For example, for the
+[image of 6 September 2019](https://apod.nasa.gov/apod/ap190906.html):
+
+![Example image](example-2019-09-06.jpg)
+
 Requirements
 ------------
 
