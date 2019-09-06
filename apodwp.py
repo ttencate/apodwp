@@ -12,12 +12,39 @@ import argparse
 import hashlib
 import io
 import logging
-from urllib.parse import urljoin
+import re
+import urllib.parse
 
 from bs4 import BeautifulSoup
 from gevent.pywsgi import WSGIServer
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import requests
+
+
+def wrap_text(width, text, font, **kwargs):
+    lines = []
+    split_re = re.compile(r'\s+')
+    paragraphs = text.split('\n')
+    for text in paragraphs:
+        split_start = 0
+        split_end = 0
+        while text:
+            split_match = split_re.search(text, pos=split_end)
+            next_length = split_match.start() if split_match else len(text)
+            next_size = font.getsize(text[:next_length], **kwargs)
+            ship_line = False
+            if next_size[0] <= width and split_match:
+                split_start = split_match.start()
+                split_end = split_match.end()
+            else:
+                if not split_match:
+                    split_start = len(text)
+                    split_end = len(text)
+                lines.append(text[:split_start])
+                text = text[split_end:]
+                split_start = 0
+                split_end = 0
+    return '\n'.join(lines)
 
 
 def get_image_data(width, height):
@@ -27,7 +54,7 @@ def get_image_data(width, height):
     html_response.raise_for_status()
 
     logging.info('Processing HTML')
-    soup = BeautifulSoup(html_response.text, features='html.parser')
+    soup = BeautifulSoup(html_response.text, features='html5lib')
     img_url = None
     for img in soup.find_all('img'):
         if img.parent.name == 'a' and 'href' in img.parent.attrs:
@@ -35,8 +62,11 @@ def get_image_data(width, height):
             break
     if not img_url:
         raise RuntimeError('No image link found')
-    abs_img_url = urljoin('https://apod.nasa.gov/', img_url)
+    abs_img_url = urllib.parse.urljoin('https://apod.nasa.gov/', img_url)
     logging.info('Discovered image URL: %s', abs_img_url)
+    explanation = soup.find('b', text=re.compile('Explanation:')).parent.get_text()
+    explanation = re.sub(r'\s+', ' ', explanation).strip()[12:].strip()
+    logging.info('Extracted explanation: %s', explanation)
 
     abs_img_url_hash = hashlib.sha1()
     abs_img_url_hash.update(abs_img_url.encode('utf-8'))
@@ -72,6 +102,20 @@ def get_image_data(width, height):
     img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_left + crop_height))
     logging.info('Resizing image to %dx%d', width, height)
     img = img.resize((width, height), Image.LANCZOS)
+
+    logging.info('Drawing explanation text')
+    margin_bottom = 50
+    padding = 20
+    font_size = 18
+    line_spacing = 10
+    font = ImageFont.truetype('Raleway-Regular.ttf', size=font_size)
+    draw = ImageDraw.Draw(img, 'RGBA')
+    wrapped_text = wrap_text(width - 2 * padding, explanation, font)
+    text_height = draw.multiline_textsize(wrapped_text, font=font, spacing=line_spacing)[1]
+    box_height = text_height + 2 * padding
+    box_top = height - margin_bottom - box_height
+    draw.rectangle((0, box_top, width, box_top + box_height), fill=(0, 0, 0, 128))
+    draw.multiline_text((padding, box_top + padding), wrapped_text, font=font, spacing=line_spacing, fill=(255, 255, 255))
 
     logging.info('Encoding image')
     img_data = io.BytesIO()

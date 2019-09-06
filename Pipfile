@@ -10,6 +10,7 @@ gevent = "*"
 requests = "*"
 bs4 = "*"
 pillow = "*"
+html5lib = "*"
 
 [requires]
 python_version = "3.7"
