@@ -2,8 +2,8 @@ Astronomy Picture of the Day Wallpaper
 ======================================
 
 This is a Python script that downloads the NASA Astronomy Picture of the Day,
-overlays the explanation text onto it, and saves the result as an image with a
-size of your choosing.
+crops and resizes it to a size of your choosing, overlays the explanation text
+onto it, and saves the result to a file.
 
 For example, for the
 [image of 6 September 2019](https://apod.nasa.gov/apod/ap190906.html):

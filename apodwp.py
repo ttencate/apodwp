@@ -9,6 +9,7 @@ resized PNG image for use as a dynamic desktop background (wallpaper). Usage:
 '''
 
 import argparse
+import datetime
 import hashlib
 import io
 import logging
@@ -49,8 +50,11 @@ def wrap_text(width, text, font, **kwargs):
     return '\n'.join(lines)
 
 
-def get_image_data(width, height):
-    apod_url = 'https://apod.nasa.gov/apod/'
+def get_image_data(width, height, date=None):
+    if date:
+        apod_url = 'https://apod.nasa.gov/apod/ap%s.html' % date.strftime('%y%m%d')
+    else:
+        apod_url = 'https://apod.nasa.gov/apod/'
     logging.info('Fetching APOD home page: %s', apod_url)
     html_response = requests.get(apod_url)
     html_response.raise_for_status()
@@ -125,10 +129,15 @@ def get_image_data(width, height):
     return img_data.getvalue()
 
 
+def parse_date(s):
+    return datetime.datetime.strptime(s, '%Y-%m-%d').date()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Fetch Astronomy Picture of the Day')
     parser.add_argument('-W', '--width', type=int, help='width of output image in pixels (default: detect monitor resolution)')
     parser.add_argument('-H', '--height', type=int, help='height of output image in pixels (default: detect monitor resolution)')
+    parser.add_argument('-d', '--date', type=parse_date, help='date for which to fetch the image, in YYYY-MM-DD format (default: latest)')
     parser.add_argument('-o', '--output_file', type=str, required=True, help='file to write output PNG image to')
     parser.add_argument('--debug', action='store_true', help='enable debug logging')
     args = parser.parse_args()
@@ -145,6 +154,6 @@ if __name__ == '__main__':
             if '*' in line:
                 args.width, args.height = map(int, line.split()[0].split('x'))
 
-    data = get_image_data(args.width, args.height)
+    data = get_image_data(args.width, args.height, args.date)
     with open(args.output_file, 'wb') as f:
         f.write(data)
