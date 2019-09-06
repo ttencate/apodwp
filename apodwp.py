@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''
 Web server that serves the latest NASA Astronomy Picture of the Day (APOD) as a
@@ -13,6 +13,8 @@ import hashlib
 import io
 import logging
 import re
+import subprocess
+import sys
 import urllib.parse
 
 from bs4 import BeautifulSoup
@@ -53,7 +55,7 @@ def get_image_data(width, height):
     html_response = requests.get(apod_url)
     html_response.raise_for_status()
 
-    logging.info('Processing HTML')
+    logging.debug('Processing HTML')
     soup = BeautifulSoup(html_response.text, features='html5lib')
     img_url = None
     for img in soup.find_all('img'):
@@ -63,16 +65,16 @@ def get_image_data(width, height):
     if not img_url:
         raise RuntimeError('No image link found')
     abs_img_url = urllib.parse.urljoin('https://apod.nasa.gov/', img_url)
-    logging.info('Discovered image URL: %s', abs_img_url)
+    logging.debug('Discovered image URL: %s', abs_img_url)
     explanation = soup.find('b', text=re.compile('Explanation:')).parent.get_text()
     explanation = re.sub(r'\s+', ' ', explanation).strip()[12:].strip()
-    logging.info('Extracted explanation: %s', explanation)
+    logging.debug('Extracted explanation: %s', explanation)
 
     abs_img_url_hash = hashlib.sha1()
     abs_img_url_hash.update(abs_img_url.encode('utf-8'))
     cache_file_name = '/tmp/%s.cache' % (abs_img_url_hash.hexdigest())
     try:
-        logging.info('Trying to read from cache: %s', cache_file_name)
+        logging.debug('Trying to read from cache: %s', cache_file_name)
         with open(cache_file_name, 'rb') as f:
             img = Image.open(f)
             img.load()
@@ -81,11 +83,11 @@ def get_image_data(width, height):
         img_response = requests.get(abs_img_url)
         img = Image.open(io.BytesIO(img_response.content))
         img.load()
-        logging.info('Writing to cache: %s', cache_file_name)
+        logging.debug('Writing to cache: %s', cache_file_name)
         with open(cache_file_name, 'wb') as f:
             f.write(img_response.content)
 
-    logging.info('Incoming image size is %dx%d', img.width, img.height)
+    logging.debug('Incoming image size is %dx%d', img.width, img.height)
     if width / height > img.width / img.height:
         # Requested size is wider. Crop top/bottom.
         crop_width = img.width
@@ -98,12 +100,12 @@ def get_image_data(width, height):
         crop_height = img.height
         crop_left = round((img.width - crop_width) / 2)
         crop_upper = 0
-    logging.info('Cropping image to %dx%d (starting at %dx%d)', crop_width, crop_height, crop_left, crop_upper)
+    logging.debug('Cropping image to %dx%d (starting at %dx%d)', crop_width, crop_height, crop_left, crop_upper)
     img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_left + crop_height))
-    logging.info('Resizing image to %dx%d', width, height)
+    logging.debug('Resizing image to %dx%d', width, height)
     img = img.resize((width, height), Image.LANCZOS)
 
-    logging.info('Drawing explanation text')
+    logging.debug('Drawing explanation text')
     margin_bottom = 50
     padding = 20
     font_size = 18
@@ -117,7 +119,7 @@ def get_image_data(width, height):
     draw.rectangle((0, box_top, width, box_top + box_height), fill=(0, 0, 0, 128))
     draw.multiline_text((padding, box_top + padding), wrapped_text, font=font, spacing=line_spacing, fill=(255, 255, 255))
 
-    logging.info('Encoding image')
+    logging.debug('Encoding image')
     img_data = io.BytesIO()
     img.save(img_data, 'png')
     return img_data.getvalue()
@@ -125,13 +127,23 @@ def get_image_data(width, height):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Fetch Astronomy Picture of the Day')
-    parser.add_argument('-W', '--width', type=int, help='width of output image in pixels')
-    parser.add_argument('-H', '--height', type=int, help='height of output image in pixels')
-    parser.add_argument('-o', '--output_file', type=str, help='file to write output PNG image to')
+    parser.add_argument('-W', '--width', type=int, help='width of output image in pixels (default: detect monitor resolution)')
+    parser.add_argument('-H', '--height', type=int, help='height of output image in pixels (default: detect monitor resolution)')
+    parser.add_argument('-o', '--output_file', type=str, required=True, help='file to write output PNG image to')
     parser.add_argument('--debug', action='store_true', help='enable debug logging')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING)
+
+    if not args.width or not args.height:
+        try:
+            xrandr_output = subprocess.run('xrandr', capture_output=True, check=True).stdout.decode()
+        except subprocess.CalledProcessError:
+            logging.error('xrandr could not be called. Screen resolution detection works only on Linux; on other systems, you must provide --width and --height manually.')
+            sys.exit(1)
+        for line in xrandr_output.splitlines():
+            if '*' in line:
+                args.width, args.height = map(int, line.split()[0].split('x'))
 
     data = get_image_data(args.width, args.height)
     with open(args.output_file, 'wb') as f:
