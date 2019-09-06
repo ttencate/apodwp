@@ -101,7 +101,7 @@ def get_image_data(width, height):
         crop_left = round((img.width - crop_width) / 2)
         crop_upper = 0
     logging.debug('Cropping image to %dx%d (starting at %dx%d)', crop_width, crop_height, crop_left, crop_upper)
-    img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_left + crop_height))
+    img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_upper + crop_height))
     logging.debug('Resizing image to %dx%d', width, height)
     img = img.resize((width, height), Image.LANCZOS)
 
