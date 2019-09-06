@@ -6,7 +6,6 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-flask = "*"
 gevent = "*"
 requests = "*"
 bs4 = "*"

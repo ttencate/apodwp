@@ -8,29 +8,19 @@ resized PNG image for use as a dynamic desktop background (wallpaper). Usage:
 
 '''
 
+import argparse
 import hashlib
 import io
 import logging
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
-from flask import Flask, request, make_response
 from gevent.pywsgi import WSGIServer
 from PIL import Image
 import requests
 
-app = Flask(__name__)
 
-@app.route('/latest.png')
-def latest():
-    try:
-        width = int(request.args.get('width', '1920'))
-        height = int(request.args.get('height', '1080'))
-    except ValueError:
-        return ('Width and height must be integers', 400)
-    if width > 3840 or height > 3840:
-        return ('Too big, run your own server', 400)
-
+def get_image_data(width, height):
     apod_url = 'https://apod.nasa.gov/apod/'
     logging.info('Fetching APOD home page: %s', apod_url)
     html_response = requests.get(apod_url)
@@ -84,16 +74,21 @@ def latest():
     img = img.resize((width, height), Image.LANCZOS)
 
     logging.info('Encoding image')
-    response_data = io.BytesIO()
-    img.save(response_data, 'png')
+    img_data = io.BytesIO()
+    img.save(img_data, 'png')
+    return img_data.getvalue()
 
-    logging.info('Sending response')
-    response = make_response(response_data.getvalue())
-    response.headers['Content-Type'] = 'image/png'
-    return response
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser(description='Fetch Astronomy Picture of the Day')
+    parser.add_argument('-W', '--width', type=int, help='width of output image in pixels')
+    parser.add_argument('-H', '--height', type=int, help='height of output image in pixels')
+    parser.add_argument('-o', '--output_file', type=str, help='file to write output PNG image to')
+    parser.add_argument('--debug', action='store_true', help='enable debug logging')
+    args = parser.parse_args()
 
-    http_server = WSGIServer(('', 8085), app)
-    http_server.serve_forever()
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING)
+
+    data = get_image_data(args.width, args.height)
+    with open(args.output_file, 'wb') as f:
+        f.write(data)
