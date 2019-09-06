@@ -50,7 +50,7 @@ def wrap_text(width, text, font, **kwargs):
     return '\n'.join(lines)
 
 
-def get_image_data(width, height, date=None):
+def get_image(width, height, date=None):
     if date:
         apod_url = 'https://apod.nasa.gov/apod/ap%s.html' % date.strftime('%y%m%d')
     else:
@@ -120,17 +120,26 @@ def get_image_data(width, height, date=None):
     text_height = draw.multiline_textsize(wrapped_text, font=font, spacing=line_spacing)[1]
     box_height = text_height + 2 * padding
     box_top = height - margin_bottom - box_height
-    draw.rectangle((0, box_top, width, box_top + box_height), fill=(0, 0, 0, 128))
+    draw.rectangle((0, box_top, width, box_top + box_height), fill=(0, 0, 0, 192))
     draw.multiline_text((padding, box_top + padding), wrapped_text, font=font, spacing=line_spacing, fill=(255, 255, 255))
 
-    logging.debug('Encoding image')
-    img_data = io.BytesIO()
-    img.save(img_data, 'png')
-    return img_data.getvalue()
+    return img
 
 
 def parse_date(s):
     return datetime.datetime.strptime(s, '%Y-%m-%d').date()
+
+
+def detect_screen_size():
+    try:
+        xrandr_output = subprocess.run('xrandr', capture_output=True, check=True).stdout.decode()
+    except subprocess.CalledProcessError:
+        logging.error('xrandr could not be called. Screen resolution detection works only on Linux; on other systems, you must provide --width and --height manually.')
+        sys.exit(1)
+    for line in xrandr_output.splitlines():
+        if '*' in line:
+            width, height = map(int, line.split()[0].split('x'))
+            return (width, height)
 
 
 if __name__ == '__main__':
@@ -138,22 +147,14 @@ if __name__ == '__main__':
     parser.add_argument('-W', '--width', type=int, help='width of output image in pixels (default: detect monitor resolution)')
     parser.add_argument('-H', '--height', type=int, help='height of output image in pixels (default: detect monitor resolution)')
     parser.add_argument('-d', '--date', type=parse_date, help='date for which to fetch the image, in YYYY-MM-DD format (default: latest)')
-    parser.add_argument('-o', '--output_file', type=str, required=True, help='file to write output PNG image to')
+    parser.add_argument('-o', '--output_file', type=str, required=True, help='file to write output image to (PNG format recommended)')
     parser.add_argument('--debug', action='store_true', help='enable debug logging')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING)
 
     if not args.width or not args.height:
-        try:
-            xrandr_output = subprocess.run('xrandr', capture_output=True, check=True).stdout.decode()
-        except subprocess.CalledProcessError:
-            logging.error('xrandr could not be called. Screen resolution detection works only on Linux; on other systems, you must provide --width and --height manually.')
-            sys.exit(1)
-        for line in xrandr_output.splitlines():
-            if '*' in line:
-                args.width, args.height = map(int, line.split()[0].split('x'))
+        (args.width, args.height) = detect_screen_size()
 
-    data = get_image_data(args.width, args.height, args.date)
-    with open(args.output_file, 'wb') as f:
-        f.write(data)
+    img = get_image(args.width, args.height, args.date)
+    img.save(args.output_file)
