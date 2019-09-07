@@ -13,6 +13,7 @@ import datetime
 import hashlib
 import io
 import logging
+import os.path
 import re
 import subprocess
 import sys
@@ -114,7 +115,7 @@ def get_image(width, height, date=None):
     padding = 20
     font_size = 18
     line_spacing = 10
-    font = ImageFont.truetype('Raleway-Regular.ttf', size=font_size)
+    font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'Raleway-Regular.ttf'), size=font_size)
     draw = ImageDraw.Draw(img, 'RGBA')
     wrapped_text = wrap_text(width - 2 * padding, explanation, font)
     text_height = draw.multiline_textsize(wrapped_text, font=font, spacing=line_spacing)[1]
