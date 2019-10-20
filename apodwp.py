@@ -109,6 +109,8 @@ def get_image(width, height, date=None):
     img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_upper + crop_height))
     logging.debug('Resizing image to %dx%d', width, height)
     img = img.resize((width, height), Image.LANCZOS)
+    logging.debug('Converting image from mode %s to RGB', img.mode)
+    img = img.convert('RGB')
 
     logging.debug('Drawing explanation text')
     margin_bottom = 50
