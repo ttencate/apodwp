@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 '''
-Web server that serves the latest NASA Astronomy Picture of the Day (APOD) as a
-resized PNG image for use as a dynamic desktop background (wallpaper). Usage:
-
-    /latest.png?width=1920&height=1200
-
+Fetches the latest NASA Astronomy Picture of the Day (APOD) as a resized PNG
+image for use as a dynamic desktop background (wallpaper). Usage: see
+README.md.
 '''
 
 import argparse
@@ -26,6 +24,10 @@ import requests
 
 
 def wrap_text(width, text, font, **kwargs):
+    '''
+    Wraps the given text at whitespace to fit inside the given width.
+    Returns the given text with newlines added.
+    '''
     lines = []
     split_re = re.compile(r'\s+')
     paragraphs = text.split('\n')
@@ -51,7 +53,12 @@ def wrap_text(width, text, font, **kwargs):
     return '\n'.join(lines)
 
 
-def get_image(width, height, date=None):
+def get_image(date=None):
+    '''
+    Fetches and caches the image for the given date.
+    Returns a tuple (image, explanation).
+    '''
+
     if date:
         apod_url = 'https://apod.nasa.gov/apod/ap%s.html' % date.strftime('%y%m%d')
     else:
@@ -88,11 +95,20 @@ def get_image(width, height, date=None):
         img_response = requests.get(abs_img_url)
         img = Image.open(io.BytesIO(img_response.content))
         img.load()
+        logging.debug('Converting image from mode %s to RGB', img.mode)
+        img = img.convert('RGB')
         logging.debug('Writing to cache: %s', cache_file_name)
         with open(cache_file_name, 'wb') as f:
             f.write(img_response.content)
-
     logging.debug('Incoming image size is %dx%d', img.width, img.height)
+    return (img, explanation)
+
+
+def cover_image(img, width, height):
+    '''
+    Crops and resizes the image to cover a rectangle of width × height. Returns
+    the new image.
+    '''
     if width / height > img.width / img.height:
         # Requested size is wider. Crop top/bottom.
         crop_width = img.width
@@ -109,9 +125,39 @@ def get_image(width, height, date=None):
     img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_upper + crop_height))
     logging.debug('Resizing image to %dx%d', width, height)
     img = img.resize((width, height), Image.LANCZOS)
-    logging.debug('Converting image from mode %s to RGB', img.mode)
-    img = img.convert('RGB')
+    return img
 
+
+def fit_image(img, width, height):
+    '''
+    Resizes the image to fit inside a rectangle of width × height, adding black
+    bars as needed. Returns the new image.
+    '''
+    if width / height > img.width / img.height:
+        # Requested size is wider. Black bars left/right.
+        fit_width = round(img.width / img.height * height)
+        fit_height = height
+        fit_left = round((width - fit_width) / 2)
+        fit_upper = 0
+    else:
+        # Requested size is taller. Black bars top/bottom.
+        fit_width = width
+        fit_height = round(img.height / img.width * width)
+        fit_left = 0
+        fit_upper = round((height - fit_height) / 2)
+    logging.debug('Resizing image to %dx%d', fit_width, fit_height)
+    img = img.resize((fit_width, fit_height), Image.LANCZOS)
+    logging.debug('Pasting image at %dx%d', fit_left, fit_upper)
+    out = Image.new(img.mode, (width, height), (0, 0, 0))
+    out.paste(img, (fit_left, fit_upper))
+    return out
+
+
+def draw_explanation(img, explanation):
+    '''
+    Draws the given explanation text into the image. Modifies the image rather
+    than returning a new one.
+    '''
     logging.debug('Drawing explanation text')
     margin_bottom = 50
     padding = 20
@@ -119,21 +165,26 @@ def get_image(width, height, date=None):
     line_spacing = 10
     font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'Raleway-Regular.ttf'), size=font_size)
     draw = ImageDraw.Draw(img, 'RGBA')
-    wrapped_text = wrap_text(width - 2 * padding, explanation, font)
+    wrapped_text = wrap_text(img.width - 2 * padding, explanation, font)
     text_height = draw.multiline_textsize(wrapped_text, font=font, spacing=line_spacing)[1]
     box_height = text_height + 2 * padding
-    box_top = height - margin_bottom - box_height
-    draw.rectangle((0, box_top, width, box_top + box_height), fill=(0, 0, 0, 192))
+    box_top = img.height - margin_bottom - box_height
+    draw.rectangle((0, box_top, img.width, box_top + box_height), fill=(0, 0, 0, 192))
     draw.multiline_text((padding, box_top + padding), wrapped_text, font=font, spacing=line_spacing, fill=(255, 255, 255))
-
-    return img
 
 
 def parse_date(s):
+    '''
+    Parses a YYYY-MM-DD string into a datetime.date object.
+    '''
     return datetime.datetime.strptime(s, '%Y-%m-%d').date()
 
 
 def detect_screen_size():
+    '''
+    Tries to detect screen resolution. Returns a tuple (width, height), or None
+    if detection failed.
+    '''
     try:
         xrandr_output = subprocess.run('xrandr', capture_output=True, check=True).stdout.decode()
     except subprocess.CalledProcessError:
@@ -151,6 +202,7 @@ if __name__ == '__main__':
     parser.add_argument('-H', '--height', type=int, help='height of output image in pixels (default: detect monitor resolution)')
     parser.add_argument('-d', '--date', type=parse_date, help='date for which to fetch the image, in YYYY-MM-DD format (default: latest)')
     parser.add_argument('-o', '--output_file', type=str, required=True, help='file to write output image to (PNG format recommended)')
+    parser.add_argument('-c', '--cover', action='store_true', help='crop image to fill entire screen, rather than adding black bars')
     parser.add_argument('--debug', action='store_true', help='enable debug logging')
     args = parser.parse_args()
 
@@ -159,5 +211,10 @@ if __name__ == '__main__':
     if not args.width or not args.height:
         (args.width, args.height) = detect_screen_size()
 
-    img = get_image(args.width, args.height, args.date)
+    (img, explanation) = get_image(args.date)
+    if args.cover:
+        img = cover_image(img, args.width, args.height)
+    else:
+        img = fit_image(img, args.width, args.height)
+    draw_explanation(img, explanation)
     img.save(args.output_file)
