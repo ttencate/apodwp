@@ -18,7 +18,6 @@ import sys
 import urllib.parse
 
 from bs4 import BeautifulSoup
-from gevent.pywsgi import WSGIServer
 from PIL import Image, ImageDraw, ImageFont
 import requests
 
@@ -196,7 +195,7 @@ def detect_screen_size():
             return (width, height)
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='Fetch Astronomy Picture of the Day')
     parser.add_argument('-W', '--width', type=int, help='width of output image in pixels (default: detect monitor resolution)')
     parser.add_argument('-H', '--height', type=int, help='height of output image in pixels (default: detect monitor resolution)')
@@ -218,3 +217,7 @@ if __name__ == '__main__':
         img = fit_image(img, args.width, args.height)
     draw_explanation(img, explanation)
     img.save(args.output_file)
+
+
+if __name__ == '__main__':
+    main()

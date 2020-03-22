@@ -13,9 +13,9 @@ For example, for the
 Requirements
 ------------
 
-See the `[packages]` section in the `Pipfile`. If you have `pipenv` installed
-(recommended!), you can use the wrapper script `apodwp` to run `apodwp.py`
-inside a virtualenv with just the right dependencies.
+See the `[tool.poetry.dependencies]` section in `pyproject.toml`. If you have
+`poetry` installed (recommended!), you can use `poetry run apodwp` to run
+`apodwp.py` inside a virtualenv with just the right dependencies.
 
 Usage
 -----
