@@ -14,8 +14,14 @@ Requirements
 ------------
 
 See the `[tool.poetry.dependencies]` section in `pyproject.toml`. If you have
-`poetry` installed (recommended!), you can use `poetry run apodwp` to run
-`apodwp.py` inside a virtualenv with just the right dependencies.
+`poetry` installed (recommended!), simply run:
+
+    poetry install --no-root
+
+This creates a virtualenv with just the right dependencies. To run the script
+inside that virtualenv, use:
+
+    poetry run apodwp.py
 
 Usage
 -----
@@ -28,7 +34,7 @@ Installation
 I'm using something like this in my `~/.xprofile` to refresh my wallpaper every
 time I log in:
 
-    ~/apodwp/apodwp.py --output_file ~/.apod.png
+    ~/apodwp/apodwp --output_file ~/.apod.png
     feh --no-fehbg --bg-fill ~/.apod.png
 
 This uses `feh` as the background setter; others like `xv` or `hsetroot`
