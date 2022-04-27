@@ -1,3 +1,34 @@
 #!/bin/sh
-cd "$(dirname "$0")"
-poetry run apodwp "$@"
+
+function log() {
+  echo "$@" >&2
+}
+
+function abort() {
+  log "$@"
+  exit 1
+}
+
+cd "$(dirname "$0")" || abort "Failed to change directory"
+
+venv=".venv-run"
+
+# Poetry doesn't have an equivalent to --upgrade, so we use venv directly to
+# manage the runtime venv.
+# Unfortunately --upgrade does not create a full venv if it doesn't exist
+# yet, so we have to check first.
+if [[ -d "$venv" ]]; then
+  log "Upgrading venv..."
+  python -m venv --upgrade "$venv" || abort "Failed to upgrade venv"
+else
+  log "Creating venv..."
+  python -m venv "$venv" || abort "Failed to create venv"
+fi
+
+log "Activating venv..."
+source "$venv/bin/activate" || abort "Failed to source venv activation script"
+
+log "Installing dependencies..."
+poetry install --no-dev --no-root || abort "failed to install dependencies"
+
+exec ./apodwp.py "$@"
