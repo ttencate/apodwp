@@ -195,6 +195,10 @@ def detect_screen_size():
             return (width, height)
 
 
+def set_background(file_name):
+    subprocess.run(['/usr/bin/feh', '--no-fehbg', '--bg-fill', file_name], check=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Fetch Astronomy Picture of the Day')
     parser.add_argument('-W', '--width', type=int, help='width of output image in pixels (default: detect monitor resolution)')
@@ -202,6 +206,7 @@ def main():
     parser.add_argument('-d', '--date', type=parse_date, help='date for which to fetch the image, in YYYY-MM-DD format (default: latest)')
     parser.add_argument('-o', '--output_file', type=str, required=True, help='file to write output image to (PNG format recommended)')
     parser.add_argument('-c', '--cover', action='store_true', help='crop image to fill entire screen, rather than adding black bars')
+    parser.add_argument('-s', '--set', action='store_true', help='use feh to set the image as the current background')
     parser.add_argument('--debug', action='store_true', help='enable debug logging')
     args = parser.parse_args()
 
@@ -217,6 +222,9 @@ def main():
         img = fit_image(img, args.width, args.height)
     draw_explanation(img, explanation)
     img.save(args.output_file)
+
+    if args.set:
+        set_background(args.output_file)
 
 
 if __name__ == '__main__':
