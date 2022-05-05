@@ -20,6 +20,7 @@ import urllib.parse
 from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageFont
 import requests
+import requests.adapters
 
 
 def wrap_text(width, text, font, **kwargs):
@@ -52,6 +53,18 @@ def wrap_text(width, text, font, **kwargs):
     return '\n'.join(lines)
 
 
+def fetch(url):
+    with requests.Session() as session:
+        retry = requests.adapters.Retry(
+            total=5,
+            backoff_factor=1.0,
+            status_forcelist=[413, 429, 500, 502, 503, 504])
+        session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retry))
+        response = session.get(url)
+        response.raise_for_status()
+        return response
+
+
 def get_image(date=None):
     '''
     Fetches and caches the image for the given date.
@@ -62,9 +75,9 @@ def get_image(date=None):
         apod_url = 'https://apod.nasa.gov/apod/ap%s.html' % date.strftime('%y%m%d')
     else:
         apod_url = 'https://apod.nasa.gov/apod/'
+        
     logging.info('Fetching APOD home page: %s', apod_url)
-    html_response = requests.get(apod_url)
-    html_response.raise_for_status()
+    html_response = fetch(apod_url)
 
     logging.debug('Processing HTML')
     soup = BeautifulSoup(html_response.text, features='html5lib')
@@ -91,7 +104,7 @@ def get_image(date=None):
             img.load()
     except IOError as ex:
         logging.info('Image not found in cache, fetching image URL: %s', abs_img_url)
-        img_response = requests.get(abs_img_url)
+        img_response = fetch(abs_img_url)
         img = Image.open(io.BytesIO(img_response.content))
         img.load()
         logging.debug('Converting image from mode %s to RGB', img.mode)
@@ -196,7 +209,9 @@ def detect_screen_size():
 
 
 def set_background(file_name):
-    subprocess.run(['/usr/bin/feh', '--no-fehbg', '--bg-fill', file_name], check=True)
+    command = ['/usr/bin/feh', '--no-fehbg', '--bg-fill', file_name]
+    logging.debug('Setting background: %s', ' '.join(command))
+    subprocess.run(command, check=True)
 
 
 def main():
@@ -221,6 +236,7 @@ def main():
     else:
         img = fit_image(img, args.width, args.height)
     draw_explanation(img, explanation)
+    logging.debug('Saving image to %s', args.output_file)
     img.save(args.output_file)
 
     if args.set:
