@@ -29,6 +29,6 @@ log "Activating venv..."
 source "$venv/bin/activate" || abort "Failed to source venv activation script"
 
 log "Installing dependencies..."
-poetry install --no-dev --no-root || abort "failed to install dependencies"
+poetry install --only main --no-root || abort "failed to install dependencies"
 
 exec ./apodwp.py "$@"
