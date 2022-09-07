@@ -136,7 +136,7 @@ def cover_image(img, width, height):
     logging.debug('Cropping image to %dx%d (starting at %dx%d)', crop_width, crop_height, crop_left, crop_upper)
     img = img.crop((crop_left, crop_upper, crop_left + crop_width, crop_upper + crop_height))
     logging.debug('Resizing image to %dx%d', width, height)
-    img = img.resize((width, height), Image.LANCZOS)
+    img = img.resize((width, height), Image.Resampling.LANCZOS)
     return img
 
 
@@ -158,7 +158,7 @@ def fit_image(img, width, height):
         fit_left = 0
         fit_upper = round((height - fit_height) / 2)
     logging.debug('Resizing image to %dx%d', fit_width, fit_height)
-    img = img.resize((fit_width, fit_height), Image.LANCZOS)
+    img = img.resize((fit_width, fit_height), Image.Resampling.LANCZOS)
     logging.debug('Pasting image at %dx%d', fit_left, fit_upper)
     out = Image.new(img.mode, (width, height), (0, 0, 0))
     out.paste(img, (fit_left, fit_upper))
