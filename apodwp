@@ -29,6 +29,7 @@ log "Activating venv..."
 source "$venv/bin/activate" || abort "Failed to source venv activation script"
 
 log "Installing dependencies..."
-poetry install --only main --no-root || abort "failed to install dependencies"
+PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring \
+  poetry install --only main --no-root || abort "failed to install dependencies"
 
 exec ./apodwp.py "$@"
