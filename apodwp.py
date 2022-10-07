@@ -173,7 +173,7 @@ def draw_explanation(img, explanation):
     logging.debug('Drawing explanation text')
     margin_bottom = 50
     padding = 20
-    font_size = 18
+    font_size = 22
     line_spacing = 10
     font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'Raleway-Regular.ttf'), size=font_size)
     draw = ImageDraw.Draw(img, 'RGBA')
