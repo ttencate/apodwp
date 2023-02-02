@@ -37,9 +37,9 @@ def wrap_text(width, text, font, **kwargs):
         while text:
             split_match = split_re.search(text, pos=split_end)
             next_length = split_match.start() if split_match else len(text)
-            next_size = font.getsize(text[:next_length], **kwargs)
+            (next_left, _, next_right, _) = font.getbbox(text[:next_length], **kwargs)
             ship_line = False
-            if next_size[0] <= width and split_match:
+            if next_right - next_left <= width and split_match:
                 split_start = split_match.start()
                 split_end = split_match.end()
             else:
@@ -171,18 +171,29 @@ def draw_explanation(img, explanation):
     than returning a new one.
     '''
     logging.debug('Drawing explanation text')
-    margin_bottom = 50
-    padding = 20
+    margin = 30
+    padding = 30
+    width_percent = 30
     font_size = 22
     line_spacing = 10
+
     font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'Raleway-Regular.ttf'), size=font_size)
     draw = ImageDraw.Draw(img, 'RGBA')
-    wrapped_text = wrap_text(img.width - 2 * padding, explanation, font)
-    text_height = draw.multiline_textsize(wrapped_text, font=font, spacing=line_spacing)[1]
+
+    box_width = int(width_percent / 100 * img.width)
+    box_right = img.width - margin
+    box_bottom = img.height - margin
+    text_width = int(box_width - 2 * padding)
+    wrapped_text = wrap_text(text_width, explanation, font)
+    text_height = draw.multiline_textbbox((0, 0), wrapped_text, font=font, spacing=line_spacing)[3]
     box_height = text_height + 2 * padding
-    box_top = img.height - margin_bottom - box_height
-    draw.rectangle((0, box_top, img.width, box_top + box_height), fill=(0, 0, 0, 192))
-    draw.multiline_text((padding, box_top + padding), wrapped_text, font=font, spacing=line_spacing, fill=(255, 255, 255))
+    box_left = box_right - box_width
+    box_top = box_bottom - box_height
+    box = (box_left, box_top, box_right - 1, box_bottom - 1)
+    logging.debug('Box: %s', box)
+
+    draw.rectangle(box, fill=(0, 0, 0, 192))
+    draw.multiline_text((box_left + padding, box_top + padding), wrapped_text, font=font, spacing=line_spacing, fill=(255, 255, 255))
 
 
 def parse_date(s):
